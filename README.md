@@ -1,225 +1,228 @@
-# ABAQUS INP 提取工具
-
-从大型 INP 文件中提取指定子系统
+**English** | [简体中文](./README_zh-CN.md)
 
 ---
 
-## 📍 项目定位
+# ABAQUS INP Extraction Tool
 
-### ABAQUS CAE的局限
-
-ABAQUS/CAE在处理孤立网格时：
-- 缺少几何体参考，无法使用图形化选择工具
-- 集合操作（并集、交集）依赖几何查询，对孤立网格失效
-- 大型模型（数千ELSET）手动操作易出错
-
-### 从源文件筛选的优势
-
-INP文件是结构化文本，包含完整的拓扑关系：
-- 节点-单元-ELSET层级清晰
-- 材料-截面-约束依赖明确
-- 可通过名称或关键词精确匹配
-
-### 本工具的作用
-
-**工作流程**：
-1. **解析INP文件** —— 识别主关键字块（NODE, ELEMENT, MATERIAL, SECTION, Constraint等）
-2. **依赖跟踪** —— ELSET → 节点 → 材料 → 约束，递归收集完整依赖链
-3. **批量生成** —— 按系统配置生成独立INP文件，保留拓扑顺序
-4. **智能缓存** —— 自动检测文件修改，避免重复解析，支持批量提取多次调用
-
-**提取内容（模型定义）**：
-- 几何：节点（*NODE）、单元（*ELEMENT）
-- 集合：NSET、ELSET、Surface
-- 属性：材料（*MATERIAL）、截面（*SECTION）
-- 连接：Connector Behavior
-- 约束：Coupling、Rigid Body、MPC、Tie、Equation、Embedded Region 等
-
-**不提取（分析定义）**：
-- 边界条件（*BOUNDARY）
-- 载荷（*CLOAD、*DLOAD、*PRESSURE）
-- 分析步（*STEP）
-- 输出请求（*OUTPUT、*NODE PRINT、*EL PRINT）
-- 初始条件（*INITIAL CONDITIONS）
-
-> 提取的 INP 文件包含完整的模型结构，可在 ABAQUS/CAE 中导入后添加边界条件和载荷进行分析
+Extract specified subsystems from large INP files
 
 ---
 
-## 📁 项目结构
+## 📍 Project Overview
+
+### Limitations of ABAQUS CAE
+
+When ABAQUS/CAE handles orphan meshes:
+- Lacks geometric references, preventing the use of graphical selection tools
+- Set operations (union, intersection) rely on geometric queries and fail for orphan meshes
+- Manual operations on large models (thousands of ELSETs) are error-prone
+
+### Advantages of Source File Filtering
+
+INP files are structured text containing complete topological relationships:
+- Clear node-element-ELSET hierarchy
+- Well-defined material-section-constraint dependencies
+- Precise matching through names or keywords
+
+### Purpose of This Tool
+
+**Workflow**:
+1. **Parse INP file** — Identify main keyword blocks (NODE, ELEMENT, MATERIAL, SECTION, Constraint, etc.)
+2. **Dependency tracking** — Recursively collect complete dependency chains: ELSET → nodes → materials → constraints
+3. **Batch generation** — Generate independent INP files by system configuration, preserving topological order
+4. **Intelligent caching** — Automatically detect file modifications to avoid redundant parsing, supporting multiple batch extractions
+
+**Extracted content (model definition)**:
+- Geometry: nodes (*NODE), elements (*ELEMENT)
+- Sets: NSET, ELSET, Surface
+- Properties: materials (*MATERIAL), sections (*SECTION)
+- Connections: Connector Behavior
+- Constraints: Coupling, Rigid Body, MPC, Tie, Equation, Embedded Region, etc.
+
+**Not extracted (analysis definition)**:
+- Boundary conditions (*BOUNDARY)
+- Loads (*CLOAD, *DLOAD, *PRESSURE)
+- Analysis steps (*STEP)
+- Output requests (*OUTPUT, *NODE PRINT, *EL PRINT)
+- Initial conditions (*INITIAL CONDITIONS)
+
+> The extracted INP files contain the complete model structure and can be imported into ABAQUS/CAE to add boundary conditions and loads for analysis
+
+---
+
+## 📁 Project Structure
 
 ```
 extract/
-├── batch.py                        # 批量提取调度器
-├── scripts/                        # 提取脚本
-│   ├── extract.py                  # ELSET提取
-│   ├── parse.py                    # INP解析
-│   └── extractor.py                # 依赖跟踪
-└── silverado/                      # 示范模型
-    ├── silverado.inp               # 源文件
-    ├── silverado.inp.cache.pkl     # 解析缓存
-    ├── elsets.py                   # 待提取ELSET字典
-    └── silverado_*.inp             # 提取后的子系统
+├── batch.py                        # Batch extraction scheduler
+├── scripts/                        # Extraction scripts
+│   ├── extract.py                  # ELSET extraction
+│   ├── parse.py                    # INP parsing
+│   └── extractor.py                # Dependency tracking
+└── silverado/                      # Example model
+    ├── silverado.inp               # Source file
+    ├── silverado.inp.cache.pkl     # Parsing cache
+    ├── elsets.py                   # ELSET dictionary to extract
+    └── silverado_*.inp             # Extracted subsystems
 ```
 
-**核心文件说明**：
-- `batch.py` —— 批量提取多个系统
-- `scripts/extract.py` —— 命令行提取指定 ELSET（支持单个或多个）
-- `scripts/parse.py` —— 解析 INP 文件结构（识别节点、单元、材料等）
-- `scripts/extractor.py` —— 收集完整依赖关系（自动包含材料、约束等）
-- `silverado/elsets.py` —— 定义要提取哪些 ELSET（手动配置分组）
+**Core file descriptions**:
+- `batch.py` — Batch extract multiple systems
+- `scripts/extract.py` — Command-line extraction of specified ELSET(s) (supports single or multiple)
+- `scripts/parse.py` — Parse INP file structure (identify nodes, elements, materials, etc.)
+- `scripts/extractor.py` — Collect complete dependencies (automatically includes materials, constraints, etc.)
+- `silverado/elsets.py` — Define which ELSETs to extract (manual grouping configuration)
 
 ---
 
-## 🚀 快速开始
+## 🚀 Quick Start
 
-### 处理你的 INP 文件
+### Processing Your INP File
 
-本工具支持常见的 ABAQUS INP 文件（HyperMesh / ANSA / PATRAN / GMSH 等前处理软件生成的孤立网格模型）。
+This tool supports common ABAQUS INP files (orphan mesh models generated by preprocessing software such as HyperMesh, ANSA, PATRAN, GMSH, etc.).
 
-**步骤 1：准备文件**
+**Step 1: Prepare files**
 ```bash
 mkdir your_model
 cp your_file.inp your_model/model.inp
 ```
 
-**步骤 2：创建提取配置**
+**Step 2: Create extraction configuration**
 
-在 `your_model/elsets.py` 中定义要提取的 ELSET：
+Define the ELSETs to extract in `your_model/elsets.py`:
 ```python
 SYSTEMS = {
     'system1': [
         'ELSET_NAME_1',
         'ELSET_NAME_2',
-        # ... 添加需要的 ELSET
+        # ... add required ELSETs
     ],
 }
 ```
 
-**步骤 3：提取**
+**Step 3: Extract**
 
 ```bash
-# 命令行提取（单个或多个 ELSET）
+# Command-line extraction (single or multiple ELSETs)
 python scripts/extract.py your_model/model.inp --elsets "ELSET1,ELSET2" -o output.inp
 
-# 批量提取（多个系统）
+# Batch extraction (multiple systems)
 python batch.py your_model/model.inp
 ```
 
 ---
 
-## 💡 示范例子
+## 💡 Example Demonstration
 
-以下使用 Silverado 整车模型（365MB，3000+ ELSET）演示实际效果。
+The following demonstrates actual results using the Silverado vehicle model (365MB, 3000+ ELSETs).
 
-### 命令行提取示例
+### Command-line Extraction Example
 
 ```bash
-# 提取单个 ELSET
+# Extract single ELSET
 python scripts/extract.py silverado/silverado.inp --elsets "P2000293;mc-disk" -o output.inp
 
-# 提取多个 ELSET（逗号分隔）
+# Extract multiple ELSETs (comma-separated)
 python scripts/extract.py silverado/silverado.inp --elsets "P2000293;mc-disk,P2000016;13-bw-bodymnt-disk" -o brake.inp
 ```
 
-**输出**：
+**Output**:
 ```text
-[目标] P2000293;mc-disk, P2000016;13-bw-bodymnt-disk
-[单元] 1017个单元, 1089个节点
-[约束] 2个约束
+[Target] P2000293;mc-disk, P2000016;13-bw-bodymnt-disk
+[Elements] 1017 elements, 1089 nodes
+[Constraints] 2 constraints
 ```
 
 ---
 
-### 批量提取示例
+### Batch Extraction Example
 
-**Silverado 配置文件**（`silverado/elsets.py`）：
+**Silverado configuration file** (`silverado/elsets.py`):
 ```python
 SYSTEMS = {
-    'body': [151个ELSET],
-    'brake': [6个ELSET],
-    'powertrain': [56个ELSET],
-    'steering': [11个ELSET],
-    'suspension': [97个ELSET],
-    'wheel': [25个ELSET],
+    'body': [151 ELSETs],
+    'brake': [6 ELSETs],
+    'powertrain': [56 ELSETs],
+    'steering': [11 ELSETs],
+    'suspension': [97 ELSETs],
+    'wheel': [25 ELSETs],
 }
 ```
 
-**执行批量提取**：
+**Execute batch extraction**:
 ```bash
 python batch.py silverado/silverado.inp
 ```
 
-**输出**：
+**Output**:
 ```text
-[批量提取] SILVERADO
-[源文件] silverado/silverado.inp
-[配置文件] F:\...\extract\silverado\elsets.py
+[Batch Extraction] SILVERADO
+[Source file] silverado/silverado.inp
+[Config file] F:\...\extract\silverado\elsets.py
 ----------------------------------------
-  body                 151 个部件
-  brake                  6 个部件
-  powertrain            56 个部件
-  steering              11 个部件
-  suspension            97 个部件
-  wheel                 25 个部件
+  body                 151 components
+  brake                  6 components
+  powertrain            56 components
+  steering              11 components
+  suspension            97 components
+  wheel                 25 components
 ----------------------------------------
 
-[brake] 提取中...
-  [目标] 6个ELSET: P2000016;13-bw-bodymnt-disk-middle, ...
-  [单元] 1603个单元, 1710个节点
-  [约束] 3个约束, 3个Nset
-  [属性] 6个截面
+[brake] Extracting...
+  [Target] 6 ELSETs: P2000016;13-bw-bodymnt-disk-middle, ...
+  [Elements] 1603 elements, 1710 nodes
+  [Constraints] 3 constraints, 3 Nsets
+  [Properties] 6 sections
 
-[powertrain] 提取中...
-  [目标] 56个ELSET: P2000121;101-bw-engineframesuprt, ...
-  [单元] 31660个单元, 34709个节点
-  [约束] 1250个约束, 90个Nset
-  [属性] 56个截面
+[powertrain] Extracting...
+  [Target] 56 ELSETs: P2000121;101-bw-engineframesuprt, ...
+  [Elements] 31660 elements, 34709 nodes
+  [Constraints] 1250 constraints, 90 Nsets
+  [Properties] 56 sections
 
 ...
 
-[完成] 批量提取完成
+[Complete] Batch extraction finished
 ```
 
-**生成文件**（与源文件同目录）：
+**Generated files** (in same directory as source file):
 ```
 silverado/
-├── silverado_body.inp       (30MB, 225856单元)
-├── silverado_brake.inp      (214KB, 1603单元)
-├── silverado_powertrain.inp (4.7MB, 31660单元)
-├── silverado_steering.inp   (256KB, 1743单元)
-├── silverado_suspension.inp (3.2MB, 20557单元)
-└── silverado_wheel.inp      (5.4MB, 41937单元)
+├── silverado_body.inp       (30MB, 225856 elements)
+├── silverado_brake.inp      (214KB, 1603 elements)
+├── silverado_powertrain.inp (4.7MB, 31660 elements)
+├── silverado_steering.inp   (256KB, 1743 elements)
+├── silverado_suspension.inp (3.2MB, 20557 elements)
+└── silverado_wheel.inp      (5.4MB, 41937 elements)
 ```
 
 ---
 
+## 🔧 Extensions
 
-## 🔧 扩展
+### Adding New Groups
 
-### 添加新分组
-
-在现有车型的 `elsets.py` 中添加新的系统分组：
+Add new system groups in the existing model's `elsets.py`:
 
 ```python
 SYSTEMS = {
-    # ... 原有分组
+    # ... existing groups
     'exhaust': [
         'P2000346;mc-exhaust-body',
         'P2000347;exhaust-pipe',
-        # ... 手动添加需要的 ELSET
+        # ... manually add required ELSETs
     ],
 }
 ```
 
 ---
 
-### 自定义组合分组
+### Custom Combined Groups
 
-如果需要创建组合系统（如前桥 = 悬挂 + 车轮 + 转向 + 刹车），可以先定义基础列表，再组合：
+To create combined systems (e.g., front axle = suspension + wheel + steering + brake), first define base lists, then combine:
 
 ```python
-# 基础系统
+# Base systems
 _SUSPENSION = ['P2000144;20-fr-suspension...', ...]
 _WHEEL = ['P2000143;19-fr-sparetiremount', ...]
 _STEERING = ['P2000345;mc-steer-cylinder', ...]
@@ -231,24 +234,24 @@ SYSTEMS = {
     'steering': _STEERING,
     'brake': _BRAKE,
 
-    # 组合系统：前桥 = 悬挂 + 车轮 + 转向 + 刹车
+    # Combined system: front axle = suspension + wheel + steering + brake
     'front_axle': sorted(set(_SUSPENSION + _WHEEL + _STEERING + _BRAKE)),
 }
 ```
 
 ---
 
-## 📄 许可证
+## 📄 License
 
 MIT License
 
 ---
 
-## 📊 数据来源
+## 📊 Data Source
 
-本项目使用的 Silverado 整车模型来自 George Mason University 的开源数据：
+The Silverado vehicle model used in this project is from open-source data provided by George Mason University:
 
 **2007 Chevrolet Silverado Finite Element Model**
 https://www.ccsa.gmu.edu/models/2007-chevrolet-silverado/
 
-感谢 GMU Center for Collision Safety and Analysis (CCSA) 提供的高质量开源有限元模型。
+Special thanks to the GMU Center for Collision Safety and Analysis (CCSA) for providing this high-quality open-source finite element model.
